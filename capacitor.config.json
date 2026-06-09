@@ -1,0 +1,11 @@
+{
+  "appId": "com.hamidanstore.hm3u8",
+  "appName": "H-M3U8",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "allowNavigation": [
+      "intent://*"
+    ]
+  }
+}

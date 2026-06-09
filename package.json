@@ -1,0 +1,15 @@
+{
+  "name": "h-m3u8-app",
+  "version": "4.0.0",
+  "description": "H-M3U8 Scanner & Merger App",
+  "scripts": {
+    "build": "echo 'No build needed for HTML'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}
