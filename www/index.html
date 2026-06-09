@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>H-M3U8</title>
+    
+    <!-- Tailwind CSS with Preflight Disabled to prevent clashing with custom CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            corePlugins: { preflight: false }
+        }
+    </script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    
+    <style>
+        /* === TEMA WARNA & DASAR GLOBAL === */
+        :root {
+            --biru: #2563eb;
+            --biru-gelap: #1d4ed8;
+            --hijau: #16a34a;
+            --hijau-gelap: #15803d;
+            --putih: #ffffff;
+            --abu-bg: #f9fafb;
+            --abu-border: #e5e7eb;
+            --abu-teks: #6b7280;
+            --hitam-teks: #111827;
+            --merah: #ef4444;
+            --transisi: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* === TEMA GELAP (DARK MODE) === */
+        body.dark-mode {
+            --putih: #1f2937;
+            --abu-bg: #111827;
+            --abu-border: #374151;
+            --abu-teks: #9ca3af;
+            --hitam-teks: #f9fafb;
+        }
+        
+        body.dark-mode .nav-wrapper .navigation { background: #1f2937; box-shadow: 0 -5px 25px rgba(0,0,0,0.5); }
+        body.dark-mode .nav-wrapper .navigation ul li a .icon, body.dark-mode .nav-wrapper .navigation ul li a .text { color: #f9fafb; }
+        body.dark-mode .nav-wrapper .indicator { background: #f9fafb; border-color: #111827; }
+        body.dark-mode .nav-wrapper .navigation ul li.active a .icon { color: #111827; }
+        body.dark-mode .nav-wrapper .indicator::before, body.dark-mode .nav-wrapper .indicator::after { box-shadow: 1px -10px 0 0 #111827; }
+        body.dark-mode .nav-wrapper .indicator::after { box-shadow: -1px -10px 0 0 #111827; }
+        
+        body.dark-mode .m3u8-box { background-color: #1f2937; border-color: #374151; }
+        body.dark-mode .m3u8-header { background-color: #111827; }
+        body.dark-mode .list-container { background-color: #1f2937; }
+        body.dark-mode .list-container li:hover { background-color: #374151; }
+        body.dark-mode .tutorial-box { background: rgba(37, 99, 235, 0.1); border-color: #374151; }
+        body.dark-mode .app-info-box { background: rgba(22, 163, 74, 0.1); border-color: #374151; }
+        body.dark-mode .history-card { background-color: #1f2937; border-color: #374151; }
+        body.dark-mode .empty-state { background-color: #1f2937; }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, sans-serif; }
+
+        body {
+            background-color: var(--abu-bg); color: var(--hitam-teks);
+            display: flex; flex-direction: column; align-items: center;
+            min-height: 100vh; padding: 20px 20px 100px 20px;
+            transition: background-color var(--transisi), color var(--transisi);
+            overflow-x: hidden;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--abu-bg); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--abu-teks); border-radius: 10px; }
+
+        /* === SPA PAGE TRANSITIONS === */
+        .page-content {
+            display: none; width: 100%; max-width: 600px;
+            flex-direction: column; animation: fadeInPage 0.5s ease forwards;
+        }
+        .page-content.active { display: flex; }
+        @keyframes fadeInPage { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* === KOMPONEN UMUM CONTAINER === */
+        .container {
+            background-color: var(--putih); border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05); padding: 25px; margin-bottom: 20px;
+            transition: background-color var(--transisi), box-shadow var(--transisi); width: 100%;
+        }
+        .page-title { font-size: 1.5rem; font-weight: 800; color: var(--hitam-teks); margin-bottom: 20px; }
+        
+        /* Custom Checkbox */
+        .custom-checkbox {
+            appearance: none; background-color: transparent; margin: 0; font: inherit; color: currentColor;
+            width: 1.25em; height: 1.25em; border: 2px solid var(--abu-border); border-radius: 0.35em;
+            display: grid; place-content: center; transition: all 0.2s ease-in-out; cursor: pointer;
+        }
+        .custom-checkbox::before {
+            content: ""; width: 0.65em; height: 0.65em; transform: scale(0); transition: 120ms transform ease-in-out;
+            box-shadow: inset 1em 1em var(--putih); background-color: transform; transform-origin: center;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .custom-checkbox:checked { background-color: var(--biru); border-color: var(--biru); }
+        .custom-checkbox:checked::before { transform: scale(1); }
+        .custom-checkbox:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* === PENGATURAN === */
+        .top-bar-pengaturan { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 2px solid var(--abu-bg); padding-bottom: 15px; }
+        .mode-switch { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; }
+        .mode-label { transition: color var(--transisi); color: var(--abu-teks); }
+        .mode-label.active { color: var(--biru); }
+        .switch { position: relative; display: inline-block; width: 48px; height: 26px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--abu-border); transition: var(--transisi); border-radius: 30px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: #fff; transition: var(--transisi); border-radius: 50%; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input:checked + .slider { background-color: var(--hitam-teks); }
+        input:checked + .slider:before { transform: translateX(22px); }
+
+        .tutorial-box, .app-info-box { background: var(--abu-bg); border: 1px solid var(--abu-border); border-radius: 12px; padding: 20px; margin-top: 15px; border-left: 5px solid var(--biru); }
+        .tutorial-box h3, .app-info-box h3 { color: var(--hitam-teks); font-size: 1.1rem; font-weight: 700; margin-bottom: 15px; }
+        .tutorial-box p, .app-info-box p { color: var(--abu-teks); font-size: 0.95rem; line-height: 1.6; margin-bottom: 10px; }
+        .tutorial-box li { color: var(--abu-teks); margin-bottom: 8px; margin-left: 20px; }
+
+        /* === RIWAYAT === */
+        .history-card { background-color: var(--putih); border-radius: 15px; padding: 15px; display: flex; align-items: center; gap: 15px; border: 1px solid var(--abu-border); margin-bottom: 15px; transition: var(--transisi); }
+        .history-icon { width: 50px; height: 50px; border-radius: 10px; background-color: rgba(37, 99, 235, 0.1); color: var(--biru); display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+        .history-info { flex: 1; overflow: hidden; }
+        .history-info h3 { font-size: 1rem; font-weight: 700; color: var(--hitam-teks); margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .history-info p { font-size: 0.85rem; color: var(--abu-teks); }
+        .history-status { font-size: 0.75rem; font-weight: bold; padding: 4px 8px; border-radius: 6px; background: rgba(22, 163, 74, 0.1); color: var(--hijau); }
+        .empty-state { text-align: center; padding: 40px 20px; background: var(--putih); border-radius: 15px; color: var(--abu-teks); border: 1px solid var(--abu-border); }
+        .empty-state i { font-size: 3rem; color: var(--abu-border); margin-bottom: 15px; }
+
+        /* === FIXED NAVIGATION BAWAH === */
+        .nav-wrapper { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 600px; z-index: 1000; display: flex; justify-content: center; }
+        .navigation { position: relative; width: 100%; height: 70px; background: var(--putih); display: flex; justify-content: center; align-items: center; border-radius: 20px 20px 0 0; box-shadow: 0 -5px 25px rgba(0, 0, 0, 0.05); transition: background var(--transisi); }
+        .navigation ul { display: flex; width: 280px; padding: 0; margin: 0; }
+        .navigation ul li { position: relative; list-style: none; width: 70px; height: 70px; z-index: 1; }
+        .navigation ul li a { position: relative; display: flex; justify-content: center; align-items: center; flex-direction: column; width: 100%; text-align: center; font-weight: 500; text-decoration: none; cursor: pointer; }
+        .navigation ul li a .icon { position: relative; display: block; line-height: 75px; font-size: 1.5em; text-align: center; color: var(--hitam-teks); transition: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .navigation ul li.active a .icon { transform: translateY(-32px); color: var(--putih); z-index: 10; }
+        .navigation ul li a .text { position: absolute; color: var(--hitam-teks); font-weight: 600; font-size: 0.75em; letter-spacing: 0.05em; transition: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); opacity: 0; transform: translateY(20px); }
+        .navigation ul li.active a .text { opacity: 1; transform: translateY(10px); }
+        .indicator { position: absolute; top: -50%; width: 70px; height: 70px; background: var(--hitam-teks); border-radius: 50%; border: 6px solid var(--abu-bg); transition: 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        .indicator::before { content: ''; position: absolute; top: 50%; left: -22px; width: 20px; height: 20px; background: transparent; border-top-right-radius: 20px; box-shadow: 1px -10px 0 0 var(--abu-bg); transition: box-shadow var(--transisi); }
+        .indicator::after { content: ''; position: absolute; top: 50%; right: -22px; width: 20px; height: 20px; background: transparent; border-top-left-radius: 20px; box-shadow: -1px -10px 0 0 var(--abu-bg); transition: box-shadow var(--transisi); }
+
+        .navigation ul li:nth-child(1).active ~ .indicator { transform: translateX(calc(70px * 0)); }
+        .navigation ul li:nth-child(2).active ~ .indicator { transform: translateX(calc(70px * 1)); }
+        .navigation ul li:nth-child(3).active ~ .indicator { transform: translateX(calc(70px * 2)); }
+        .navigation ul li:nth-child(4).active ~ .indicator { transform: translateX(calc(70px * 3)); }
+
+        @media (max-width: 480px) {
+            body { padding: 0 0 90px 0; }
+            .container { max-width: 100%; border-radius: 0; box-shadow: none; min-height: calc(100vh - 70px); padding: 20px; margin-bottom: 0; }
+            .nav-wrapper { max-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- TAB 1: RUMAH (SCANNER & MERGER) -->
+<div id="page-rumah" class="page-content active">
+    
+    <div class="m3u8-box bg-[var(--putih)] rounded-3xl shadow-xl overflow-hidden border border-[var(--abu-border)] transition-all duration-300 w-full">
+        
+        <!-- Header -->
+        <div class="m3u8-header bg-gray-900 p-6 text-white relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-64 h-64 bg-gray-800 rounded-full blur-3xl opacity-30 -mr-20 -mt-20"></div>
+            <div class="relative z-10">
+                <h1 class="text-2xl font-bold mb-1 tracking-tight">HAMIDAN-M3U8 CONVERTER TO MP4</h1>
+                <p class="text-gray-300 text-sm">Scan file M3U8 untuk gabungkan menjadi MP4.</p>
+            </div>
+        </div>
+
+        <div class="p-5">
+            <!-- Tombol Aksi -->
+            <div class="flex flex-col sm:flex-row gap-3 mb-6">
+                <button id="btnScan" onclick="handleScan()" class="flex-1 px-4 py-3 bg-[var(--biru)] hover:bg-[var(--biru-gelap)] text-white text-sm font-medium rounded-xl transition-all duration-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-folder-search"></i>
+                    Scan Folder
+                </button>
+                
+                <button id="btnMerge" onclick="handleMerge()" disabled class="flex-1 px-4 py-3 bg-[var(--hijau)] hover:bg-[var(--hijau-gelap)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-xl transition-all duration-300 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-file-video"></i>
+                    Gabungkan ke MP4
+                </button>
+            </div>
+
+            <!-- Status -->
+            <div id="statusContainer" class="hidden mb-6 p-4 rounded-xl bg-[var(--abu-bg)] border border-[var(--abu-border)]">
+                <p id="statusText" class="font-medium text-[var(--hitam-teks)] text-center text-sm">Menunggu aksi...</p>
+                <div id="progressContainer" class="hidden mt-3">
+                    <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div id="progressBar" class="bg-[var(--biru)] h-full rounded-full transition-all duration-300 relative" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List File -->
+            <div class="border border-[var(--abu-border)] rounded-xl overflow-hidden bg-[var(--putih)]">
+                <div class="bg-[var(--abu-bg)] p-3 border-b border-[var(--abu-border)] flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" disabled class="custom-checkbox">
+                        <label for="selectAll" class="font-medium text-sm text-[var(--hitam-teks)] cursor-pointer select-none">Pilih Semua</label>
+                    </div>
+                    <span class="text-xs font-bold text-[var(--abu-teks)]" id="fileCountBadge">0 File</span>
+                </div>
+                
+                <ul id="listContainer" class="list-container max-h-[350px] overflow-y-auto divide-y divide-[var(--abu-border)]">
+                    <li class="p-8 flex flex-col items-center justify-center text-center text-[var(--abu-teks)]">
+                        <i class="fa-solid fa-magnifying-glass text-3xl mb-3 opacity-50"></i>
+                        <span class="text-sm">Klik <b>Scan Folder</b> untuk memulai pencarian file .m3u8</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="mt-4 text-xs text-[var(--abu-teks)] bg-[var(--abu-bg)] p-3 rounded-lg border border-[var(--abu-border)] flex items-start gap-2">
+                <i class="fa-solid fa-circle-info mt-0.5 text-[var(--biru)]"></i>
+                <p>Mendukung pemrosesan paralel cepat.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- TAB 2: DEVELOPER -->
+<div id="page-developer" class="page-content">
+    <div class="container">
+        <h1 class="page-title">Developer</h1>
+        <div class="app-info-box border-l-[var(--hijau)]">
+            <h3><i class="fa-solid fa-circle-info text-[var(--hijau)]"></i> Detail Aplikasi</h3>
+            <p><strong>Nama:</strong> <span>H-M3U8</span></p>
+            <p><strong>Versi:</strong> <span>4.0 (Fast Mode)</span></p>
+            <p><strong>Platform:</strong> <span>HTML5 / APK WebView</span></p>
+            <p><strong>Developer:</strong> <span>Hamidan Store</span></p>
+        </div>
+
+        <div class="tutorial-box mt-4 border-l-[var(--biru)]">
+            <h3><i class="fa-solid fa-bolt text-[var(--biru)]"></i> Fitur Unggulan</h3>
+            <ul>
+                <li><strong>Parallel Fetching:</strong> Membaca partisi video secara massal agar proses merge lebih cepat.</li>
+                <li><strong>Direct Storage (OPFS):</strong> Mengelola file raksasa tanpa membuat browser / RAM crash.</li>
+                <li><strong>Auto-Detect Folder:</strong> Otomatis mencocokkan file `.m3u8` dengan folder segmentasinya.</li>
+            </ul>
+        </div>
+        
+        <p class="text-center text-[var(--abu-teks)] text-sm mt-6">Hak Cipta &copy; Hamidan Store</p>
+    </div>
+</div>
+
+<!-- TAB 3: RIWAYAT -->
+<div id="page-riwayat" class="page-content">
+    <div class="w-full">
+        <h1 class="page-title px-1">Riwayat Gabung</h1>
+        <div id="historyList">
+            <!-- Dirender via JS -->
+        </div>
+    </div>
+</div>
+
+<!-- TAB 4: PENGATURAN -->
+<div id="page-pengaturan" class="page-content">
+    <div class="container">
+        <div class="top-bar-pengaturan">
+            <h1 class="page-title" style="margin-bottom:0;">Pengaturan</h1>
+            <div class="mode-switch">
+                <span id="labelTerang" class="mode-label active">Terang</span>
+                <label class="switch">
+                    <input type="checkbox" id="themeToggle" class="theme-slider">
+                    <span class="slider"></span>
+                </label>
+                <span id="labelGelap" class="mode-label">Gelap</span>
+            </div>
+        </div>
+
+        <div class="tutorial-box">
+            <h3><i class="fa-solid fa-book-open"></i> Bantuan Penggunaan</h3>
+            <p>Aplikasi ini membaca struktur file HLS (M3U8) yang terunduh di penyimpanan Anda.</p>
+            <ol class="list-decimal pl-4 mt-2 text-sm text-[var(--abu-teks)] space-y-2">
+                <li>Siapkan folder yang berisi file <code>.m3u8</code> dan folder segmentasinya (biasanya berakhiran <code>_contents</code>).</li>
+                <li>Buka aplikasi, klik <strong>Scan Folder</strong>, dan izinkan akses baca folder tersebut.</li>
+                <li>Pilih video yang ingin di-gabung.</li>
+                <li>Klik <strong>Gabungkan ke MP4</strong>.</li>
+                <li>Tunggu proses selesai, file MP4 akan otomatis terunduh ke perangkat Anda.</li>
+            </ol>
+        </div>
+        
+        <div class="mt-6">
+            <button onclick="clearHistory()" class="w-full py-3 bg-[var(--abu-bg)] hover:bg-[var(--abu-border)] text-[var(--merah)] font-bold rounded-xl border border-[var(--abu-border)] transition-all">
+                <i class="fa-solid fa-trash-can mr-2"></i> Bersihkan Riwayat
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- BOTTOM NAVIGATION -->
+<div class="nav-wrapper">
+    <div class="navigation">
+        <ul>
+            <li class="list active" onclick="switchPage('page-rumah', this)">
+                <a>
+                    <span class="icon"><ion-icon name="home-outline"></ion-icon></span>
+                    <span class="text">Utama</span>
+                </a>
+            </li>
+            <li class="list" onclick="switchPage('page-developer', this)">
+                <a>
+                    <span class="icon"><ion-icon name="code-slash-outline"></ion-icon></span>
+                    <span class="text">Info</span>
+                </a>
+            </li>
+            <li class="list" onclick="switchPage('page-riwayat', this)">
+                <a>
+                    <span class="icon"><ion-icon name="time-outline"></ion-icon></span>
+                    <span class="text">Riwayat</span>
+                </a>
+            </li>
+            <li class="list" onclick="switchPage('page-pengaturan', this)">
+                <a>
+                    <span class="icon"><ion-icon name="settings-outline"></ion-icon></span>
+                    <span class="text">Setelan</span>
+                </a>
+            </li>
+            <div class="indicator"></div>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. ROUTING & TEMA
+    // ==========================================
+    function switchPage(pageId, navItem) {
+        document.querySelectorAll('.page-content').forEach(page => page.classList.remove('active'));
+        document.querySelectorAll('.list').forEach(li => li.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        if(navItem) navItem.classList.add('active');
+        localStorage.setItem('m3u8_activePage', pageId);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedPage = localStorage.getItem('m3u8_activePage') || 'page-rumah';
+        const pageMap = { 'page-rumah': 0, 'page-developer': 1, 'page-riwayat': 2, 'page-pengaturan': 3 };
+        const index = pageMap[savedPage] !== undefined ? pageMap[savedPage] : 0;
+        const navItems = document.querySelectorAll('.list');
+        switchPage(savedPage, navItems[index]);
+
+        if (localStorage.getItem('m3u8_theme') === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('themeToggle').checked = true;
+            updateThemeLabel();
+        }
+        renderHistory();
+    });
+
+    const themeToggle = document.getElementById('themeToggle');
+    const labelTerang = document.getElementById('labelTerang');
+    const labelGelap = document.getElementById('labelGelap');
+
+    themeToggle.addEventListener('change', function() {
+        if (this.checked) {
+            document.body.classList.add('dark-mode'); localStorage.setItem('m3u8_theme', 'dark');
+        } else {
+            document.body.classList.remove('dark-mode'); localStorage.setItem('m3u8_theme', 'light');
+        }
+        updateThemeLabel();
+    });
+
+    function updateThemeLabel() {
+        if (themeToggle.checked) {
+            labelGelap.classList.add('active'); labelTerang.classList.remove('active');
+        } else {
+            labelTerang.classList.add('active'); labelGelap.classList.remove('active');
+        }
+    }
+
+    // ==========================================
+    // 2. RIWAYAT
+    // ==========================================
+    let historyData = JSON.parse(localStorage.getItem('m3u8_history')) || [];
+
+    function saveToHistory(fileName, size) {
+        const now = new Date();
+        const timeStr = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        
+        historyData.unshift({
+            id: Date.now(),
+            nama: fileName,
+            waktu: timeStr,
+            ukuran: size || 'Selesai'
+        });
+        localStorage.setItem('m3u8_history', JSON.stringify(historyData));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const container = document.getElementById('historyList');
+        container.innerHTML = '';
+        
+        if(historyData.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <i class="fa-solid fa-file-video"></i>
+                    <p>Belum ada riwayat video yang digabungkan.</p>
+                </div>`;
+            return;
+        }
+
+        historyData.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'history-card';
+            card.innerHTML = `
+                <div class="history-icon"><i class="fa-solid fa-clapperboard"></i></div>
+                <div class="history-info">
+                    <h3>${item.nama}</h3>
+                    <p><i class="fa-regular fa-clock mr-1"></i> ${item.waktu}</p>
+                </div>
+                <div class="history-status">Tersimpan</div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function clearHistory() {
+        if(confirm("Yakin ingin menghapus semua riwayat? File video di penyimpanan tidak akan terhapus.")) {
+            historyData = [];
+            localStorage.setItem('m3u8_history', JSON.stringify([]));
+            renderHistory();
+        }
+    }
+
+    // ==========================================
+    // 3. LOGIKA M3U8 SCANNER & MERGER
+    // ==========================================
+    let m3u8Files = []; 
+    
+    // Cek kompatibilitas File System Access API
+    if (!window.showDirectoryPicker) {
+        console.warn("showDirectoryPicker tidak didukung di lingkungan ini.");
+    }
+
+    async function handleScan() {
+        if (!window.showDirectoryPicker) {
+            alert("Fitur ini memerlukan browser berbasis Chromium terbaru (seperti Google Chrome).\n\nJika ini adalah WebView APK, fitur pemindaian folder otomatis mungkin dibatasi oleh sistem Android.");
+            return;
+        }
+
+        try {
+            const dirHandle = await window.showDirectoryPicker({ mode: 'read' });
+            
+            showStatus("Memindai folder, mohon tunggu...", false);
+            m3u8Files = [];
+            
+            const filesMap = new Map();
+            const dirsMap = new Map();
+
+            for await (const entry of dirHandle.values()) {
+                if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.m3u8')) {
+                    filesMap.set(entry.name, entry);
+                } else if (entry.kind === 'directory') {
+                    dirsMap.set(entry.name, entry);
+                }
+            }
+
+            for (const [name, fileHandle] of filesMap.entries()) {
+                const folderTargetName = name + "_contents";
+                if (dirsMap.has(folderTargetName)) {
+                    m3u8Files.push({
+                        id: 'item_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+                        name: name,
+                        baseName: name.substring(0, name.lastIndexOf('.')),
+                        folderTargetName: folderTargetName,
+                        fileHandle: fileHandle,
+                        folderHandle: dirsMap.get(folderTargetName)
+                    });
+                }
+            }
+
+            renderList();
+            
+            if (m3u8Files.length > 0) {
+                showStatus(`Ditemukan ${m3u8Files.length} file siap digabung.`, false);
+                document.getElementById('btnMerge').disabled = true; 
+                document.getElementById('selectAll').disabled = false;
+                document.getElementById('selectAll').checked = false;
+            } else {
+                showStatus(`Tidak ditemukan pasangan file (.m3u8) dan folder yang cocok.`, false);
+                document.getElementById('btnMerge').disabled = true;
+                document.getElementById('selectAll').disabled = true;
+            }
+
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error(err);
+                showStatus("Error: " + err.message, false);
+            } else {
+                showStatus("Pilih folder dibatalkan.", false);
+            }
+        }
+    }
+
+    function renderList() {
+        const container = document.getElementById('listContainer');
+        const badge = document.getElementById('fileCountBadge');
+        container.innerHTML = '';
+        badge.innerText = `${m3u8Files.length} File`;
+
+        if (m3u8Files.length === 0) {
+            container.innerHTML = `
+                <li class="p-8 flex flex-col items-center justify-center text-center text-[var(--abu-teks)]">
+                    <span class="text-sm">Tidak ada file yang memenuhi kriteria.</span>
+                </li>`;
+            return;
+        }
+
+        m3u8Files.forEach((item, index) => {
+            const li = document.createElement('li');
+            li.className = "p-4 flex items-center gap-4 transition-colors duration-200 group";
+            
+            li.innerHTML = `
+                <input type="checkbox" id="${item.id}" value="${index}" class="m3u8-checkbox custom-checkbox flex-shrink-0" onchange="checkSelection()">
+                <label for="${item.id}" class="cursor-pointer flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-2 overflow-hidden">
+                    <div class="flex flex-col overflow-hidden">
+                        <span class="font-bold text-[var(--hitam-teks)] truncate" title="${item.name}">${item.name}</span>
+                        <span class="text-xs text-[var(--abu-teks)] truncate">Folder: /${item.folderTargetName}/</span>
+                    </div>
+                    <div id="status_${item.id}" class="text-xs font-semibold text-[var(--abu-teks)] bg-[var(--abu-border)] px-3 py-1.5 rounded-lg w-fit whitespace-nowrap">
+                        Menunggu
+                    </div>
+                </label>
+            `;
+            container.appendChild(li);
+        });
+    }
+
+    function toggleSelectAll(checkbox) {
+        const checkboxes = document.querySelectorAll('.m3u8-checkbox');
+        checkboxes.forEach(cb => {
+            if (!cb.disabled) cb.checked = checkbox.checked;
+        });
+        checkSelection();
+    }
+
+    function checkSelection() {
+        const checkboxes = document.querySelectorAll('.m3u8-checkbox');
+        const checked = document.querySelectorAll('.m3u8-checkbox:checked');
+        const selectAllCb = document.getElementById('selectAll');
+        const btnMerge = document.getElementById('btnMerge');
+        
+        selectAllCb.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
+        selectAllCb.indeterminate = checked.length > 0 && checked.length < checkboxes.length;
+        
+        btnMerge.disabled = checked.length === 0;
+    }
+
+    async function handleMerge() {
+        const checkedBoxes = document.querySelectorAll('.m3u8-checkbox:checked');
+        if (checkedBoxes.length === 0) return;
+
+        try {
+            document.getElementById('btnScan').disabled = true;
+            document.getElementById('btnMerge').disabled = true;
+            document.querySelectorAll('.custom-checkbox').forEach(cb => cb.disabled = true);
+
+            let successCount = 0;
+
+            for (let i = 0; i < checkedBoxes.length; i++) {
+                const index = checkedBoxes[i].value;
+                const item = m3u8Files[index];
+                const statusBadge = document.getElementById(`status_${item.id}`);
+                const listItem = statusBadge.closest('li');
+                
+                try {
+                    if(statusBadge) {
+                        statusBadge.className = "text-xs font-bold text-[var(--biru)] bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg w-fit whitespace-nowrap flex items-center gap-1.5";
+                        statusBadge.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Proses...`;
+                        listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+
+                    await processSingleItem(item, i + 1, checkedBoxes.length);
+                    successCount++;
+
+                    if(statusBadge) {
+                        statusBadge.className = "text-xs font-bold text-[var(--hijau)] bg-green-100 dark:bg-green-900/30 px-3 py-1.5 rounded-lg w-fit whitespace-nowrap";
+                        statusBadge.innerHTML = `<i class="fa-solid fa-check"></i> Selesai`;
+                    }
+                    
+                    // Simpan ke riwayat
+                    saveToHistory(item.baseName + ".mp4");
+
+                } catch (e) {
+                    console.error(`Gagal memproses ${item.name}:`, e);
+                    if(statusBadge) {
+                        statusBadge.className = "text-xs font-bold text-[var(--merah)] bg-red-100 dark:bg-red-900/30 px-3 py-1.5 rounded-lg w-fit whitespace-nowrap";
+                        statusBadge.innerHTML = `<i class="fa-solid fa-xmark"></i> Gagal`;
+                    }
+                }
+            }
+
+            showStatus(`Selesai! Berhasil mengunduh ${successCount} dari ${checkedBoxes.length} video.`, false);
+            document.getElementById('progressBar').classList.add('bg-[var(--hijau)]');
+
+        } catch (err) {
+            console.error(err);
+            showStatus("Proses dibatalkan atau terjadi kesalahan.", false);
+        } finally {
+            document.getElementById('btnScan').disabled = false;
+            document.querySelectorAll('.custom-checkbox').forEach(cb => cb.disabled = false);
+            checkSelection();
+        }
+    }
+
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+
+    async function processSingleItem(item, currentNum, totalNum) {
+        showStatus(`Membaca [${currentNum}/${totalNum}]: ${item.name}...`, true);
+        updateProgress(0);
+
+        const fileData = await item.fileHandle.getFile();
+        const textContent = await fileData.text();
+        
+        const lines = textContent.split(/\r?\n/);
+        const segmentFiles = lines.filter(line => line.trim() !== '' && !line.startsWith('#')).map(line => line.trim());
+
+        if (segmentFiles.length === 0) {
+            throw new Error("Tidak ada pecahan M3U8");
+        }
+
+        const outFileName = item.baseName + ".mp4";
+        const opfsRoot = await navigator.storage.getDirectory();
+        const outFileHandle = await opfsRoot.getFileHandle(outFileName, { create: true });
+        const writableStream = await outFileHandle.createWritable();
+
+        let processed = 0;
+        const BATCH_SIZE = 12; // Paralel 12 file (cocok untuk mobile)
+        
+        try {
+            for (let i = 0; i < segmentFiles.length; i += BATCH_SIZE) {
+                const batchNames = segmentFiles.slice(i, i + BATCH_SIZE);
+
+                const buffers = await Promise.all(batchNames.map(async (segName) => {
+                    const cleanSegName = segName.includes('/') ? segName.substring(segName.lastIndexOf('/') + 1) : segName;
+                    
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        try {
+                            const segHandle = await item.folderHandle.getFileHandle(cleanSegName);
+                            const segFile = await segHandle.getFile();
+                            return await segFile.arrayBuffer(); 
+                        } catch (err) {
+                            if (err.name === 'NotFoundError') return null;
+                            await delay(500);
+                        }
+                    }
+                    throw new Error(`PECAHAN_ERROR: ${segName}`);
+                }));
+
+                for (let j = 0; j < buffers.length; j++) {
+                    if (buffers[j]) await writableStream.write(buffers[j]);
+                    processed++;
+                }
+
+                const percentage = Math.round((processed / segmentFiles.length) * 100);
+                showStatus(`Ngebut 🚀 (${currentNum}/${totalNum}) - ${item.baseName} : ${percentage}%`, true);
+                updateProgress(percentage);
+            }
+
+            await writableStream.close();
+
+            showStatus(`Mengunduh (${currentNum}/${totalNum})...`, true);
+            const finalFile = await outFileHandle.getFile();
+            const url = URL.createObjectURL(finalFile);
+            
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = outFileName;
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(async () => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                try { await opfsRoot.removeEntry(outFileName); } catch(e) {}
+            }, 3000);
+
+        } catch (globalErr) {
+            try {
+                await writableStream.abort();
+                await opfsRoot.removeEntry(outFileName); 
+            } catch (abortErr) {}
+            throw globalErr; 
+        }
+    }
+
+    function showStatus(message, showProgress) {
+        const container = document.getElementById('statusContainer');
+        const text = document.getElementById('statusText');
+        const prog = document.getElementById('progressContainer');
+        const bar = document.getElementById('progressBar');
+        
+        container.classList.remove('hidden');
+        text.innerHTML = message;
+        
+        if (showProgress) {
+            prog.classList.remove('hidden');
+            bar.classList.remove('bg-[var(--hijau)]');
+            bar.classList.add('bg-[var(--biru)]');
+        } else {
+            prog.classList.add('hidden');
+        }
+    }
+
+    function updateProgress(percentage) {
+        const bar = document.getElementById('progressBar');
+        bar.style.width = percentage + '%';
+    }
+</script>
+</body>
+</html>
+
